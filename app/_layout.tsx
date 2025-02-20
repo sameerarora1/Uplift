@@ -1,22 +1,15 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useRootNavigation } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function RootLayout() {
-  const router = useRouter();
+  const navigation = useRootNavigation(); // ✅ Safe navigation
   const [userId, setUserId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [hasMounted, setHasMounted] = useState(false);
 
   useEffect(() => {
-    setHasMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!hasMounted) return; // Prevents navigating before mounting
-
     const checkUserSession = async () => {
       try {
         console.log("Checking AsyncStorage for user_id...");
@@ -27,9 +20,12 @@ export default function RootLayout() {
           setUserId(storedUserId);
         } else {
           console.log("No user found, redirecting to Auth...");
+          // 🔥 Ensure navigation is mounted before navigating
           setTimeout(() => {
-            router.replace('/Auth'); // 🔥 Delayed navigation fix
-          }, 100); 
+            if (navigation?.isReady()) {
+              navigation.reset({ index: 0, routes: [{ name: 'Auth' }] });
+            }
+          }, 300);
         }
       } catch (error) {
         console.error("Error checking user session:", error);
@@ -38,11 +34,11 @@ export default function RootLayout() {
     };
 
     checkUserSession();
-  }, [hasMounted]);
+  }, [navigation]);
 
   if (isLoading) {
     console.log("App is still loading...");
-    return null; // Prevent flashing during loading
+    return null; // Prevents flashing and early navigation
   }
 
   return (

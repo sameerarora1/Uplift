@@ -60,13 +60,13 @@ export default function HomeScreen() {
       ))}
 
       {/* ✅ Reset AsyncStorage Button */}
-      <View style={styles.buttonContainer}>
+      {/* <View style={styles.buttonContainer}>
         <Button
           title="Reset AsyncStorage"
           onPress={handleResetStorage}
           buttonStyle={styles.button}
         />
-      </View>
+      </View> */}
     </ParallaxScrollView>
   );
 }
@@ -82,6 +82,10 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 16,
     paddingHorizontal: 16,
+    borderColor: '#ccc',
+    borderWidth: 0.25,
+    borderRadius: 8,
+    padding: 15,
   },
   reactLogo: {
     resizeMode: 'cover',

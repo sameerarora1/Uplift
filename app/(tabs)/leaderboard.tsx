@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, SafeAreaView, useColorScheme } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, useColorScheme } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ThemedView } from '@/components/ThemedView';
-import { ThemedText } from '@/components/ThemedText';
 
 export default function LeaderboardScreen() {
   const [userPoints, setUserPoints] = useState<number | null>(null);
   const [leaderboardMode, setLeaderboardMode] = useState<'individual' | 'gender'>('individual');
-  const [individualLeaderboard, setIndividualLeaderboard] = useState<{ first_name: string; points: number }[]>([]);
+  const [individualLeaderboard, setIndividualLeaderboard] = useState<{ first_name: string; last_name: string; points: number }[]>([]);
   const [genderLeaderboard, setGenderLeaderboard] = useState<{ male: number; female: number } | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const colorScheme = useColorScheme();
@@ -25,45 +23,27 @@ export default function LeaderboardScreen() {
   }, [userId, leaderboardMode]);
 
   useEffect(() => {
-    // ✅ Realtime subscription for profiles (individual points updates)
     const profileSubscription = supabase
       .channel('realtime-leaderboard')
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'profiles' },
-        (payload) => {
-          console.log('Profile Updated:', payload);
-          fetchUserPoints(); // Refresh user's points
-          if (leaderboardMode === 'individual') {
-            fetchLeaderboard(); // Refresh individual leaderboard
-          }
-        }
-      )
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, () => {
+        fetchUserPoints();
+        if (leaderboardMode === 'individual') fetchLeaderboard();
+      })
       .subscribe();
 
-    // ✅ Realtime subscription for leaderboard (gender points updates)
     const leaderboardSubscription = supabase
       .channel('realtime-gender')
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'leaderboard' },
-        (payload) => {
-          console.log('Leaderboard Updated:', payload);
-          if (leaderboardMode === 'gender') {
-            fetchLeaderboard(); // Refresh gender leaderboard
-          }
-        }
-      )
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'leaderboard' }, () => {
+        if (leaderboardMode === 'gender') fetchLeaderboard();
+      })
       .subscribe();
 
-    // ✅ Cleanup on unmount
     return () => {
       supabase.removeChannel(profileSubscription);
       supabase.removeChannel(leaderboardSubscription);
     };
   }, [leaderboardMode]);
 
-  // ✅ Fetch User ID from AsyncStorage
   const fetchUserId = async () => {
     const storedUserId = await AsyncStorage.getItem('user_id');
     if (storedUserId) {
@@ -71,62 +51,32 @@ export default function LeaderboardScreen() {
     }
   };
 
-  // ✅ Fetch User's Current Points
   const fetchUserPoints = async () => {
     if (!userId) return;
-
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('points')
-      .eq('id', userId)
-      .single();
-
-    if (error) {
-      console.error('Error fetching user points:', error);
-    } else {
-      setUserPoints(data?.points || 0);
-    }
+    const { data, error } = await supabase.from('profiles').select('points').eq('id', userId).single();
+    if (!error) setUserPoints(data?.points || 0);
   };
 
-  // ✅ Fetch Leaderboard Data Based on Mode
   const fetchLeaderboard = async () => {
     if (leaderboardMode === 'individual') {
-      // 📌 Fetch All Profiles Ranked by Points
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('first_name, points')
-        .order('points', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching individual leaderboard:', error);
-      } else {
-        setIndividualLeaderboard(data || []);
-      }
+      const { data, error } = await supabase.from('profiles').select('first_name, last_name, points').order('points', { ascending: false });
+      if (!error) setIndividualLeaderboard(data || []);
     } else {
-      // 📌 Fetch Gender Points from `leaderboard`
-      const { data, error } = await supabase
-        .from('leaderboard')
-        .select('male_points, female_points')
-        .single();
-
-      if (error) {
-        console.error('Error fetching gender leaderboard:', error);
-      } else {
-        setGenderLeaderboard({ male: data.male_points, female: data.female_points });
-      }
+      const { data, error } = await supabase.from('leaderboard').select('male_points, female_points').single();
+      if (!error) setGenderLeaderboard({ male: data.male_points, female: data.female_points });
     }
   };
+
+  const maxPoints = (genderLeaderboard?.male || 0) + (genderLeaderboard?.female || 0);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colorScheme === 'dark' ? '#121212' : '#F8F8F8' }]}>
-      {/* ✅ User's Current Points inside SafeArea */}
       <View style={styles.userPointsContainer}>
-        <ThemedText style={[styles.userPointsText, { color: colorScheme === 'dark' ? '#FFF' : '#000' }]}>
+        <Text style={[styles.userPointsText, { color: colorScheme === 'dark' ? '#FFF' : '#000' }]}>
           Your Points: {userPoints ?? '...'}
-        </ThemedText>
+        </Text>
       </View>
 
-      {/* ✅ Toggle Pill for Switching Leaderboard Mode */}
       <View style={styles.toggleContainer}>
         <TouchableOpacity
           style={[styles.toggleButton, leaderboardMode === 'individual' && styles.activeToggle]}
@@ -142,29 +92,52 @@ export default function LeaderboardScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* ✅ Leaderboard Content Based on Selected Mode */}
       {leaderboardMode === 'individual' ? (
-        // 📌 Individual Leaderboard (List of Users)
         <FlatList
           data={individualLeaderboard}
           keyExtractor={(item, index) => index.toString()}
+          contentContainerStyle={{ paddingBottom: 80 }} // ✅ Adds padding so last item isn't hidden
           renderItem={({ item, index }) => (
             <View style={styles.leaderboardItem}>
               <Text style={[styles.rankText, { color: colorScheme === 'dark' ? '#FFF' : '#000' }]}>#{index + 1}</Text>
-              <Text style={[styles.nameText, { color: colorScheme === 'dark' ? '#FFF' : '#000' }]}>{item.first_name}</Text>
+              <Text style={[styles.nameText, { color: colorScheme === 'dark' ? '#FFF' : '#000' }]}>{item.first_name + " " + item.last_name}</Text>
               <Text style={[styles.pointsText, { color: colorScheme === 'dark' ? '#FFF' : '#000' }]}>{item.points} pts</Text>
             </View>
           )}
         />
       ) : (
-        // 📌 Gender Leaderboard (Total Points)
         <View style={styles.genderLeaderboard}>
-          <Text style={[styles.genderText, { color: colorScheme === 'dark' ? '#FFF' : '#000' }]}>
-            👦 Boys: {genderLeaderboard?.male ?? '...'}
-          </Text>
-          <Text style={[styles.genderText, { color: colorScheme === 'dark' ? '#FFF' : '#000' }]}>
-            👧 Girls: {genderLeaderboard?.female ?? '...'}
-          </Text>
+          <View style={styles.barContainer}>
+            {/* Boys Bar */}
+            <View style={styles.barWrapper}>
+              <View
+                style={[
+                  styles.bar,
+                  styles.boysBar,
+                  { height: maxPoints ? `${(genderLeaderboard?.male / maxPoints) * 100}%` : '10%' },
+                ]}
+              />
+              <Text style={[styles.genderLabel, { color: colorScheme === 'dark' ? '#FFF' : '#000' }]}>👦 Boys</Text>
+              <Text style={[styles.genderPoints, { color: colorScheme === 'dark' ? '#FFF' : '#000' }]}>
+                {genderLeaderboard?.male ?? '...'}
+              </Text>
+            </View>
+
+            {/* Girls Bar */}
+            <View style={styles.barWrapper}>
+              <View
+                style={[
+                  styles.bar,
+                  styles.girlsBar,
+                  { height: maxPoints ? `${(genderLeaderboard?.female / maxPoints) * 100}%` : '10%' },
+                ]}
+              />
+              <Text style={[styles.genderLabel, { color: colorScheme === 'dark' ? '#FFF' : '#000' }]}>👧 Girls</Text>
+              <Text style={[styles.genderPoints, { color: colorScheme === 'dark' ? '#FFF' : '#000' }]}>
+                {genderLeaderboard?.female ?? '...'}
+              </Text>
+            </View>
+          </View>
         </View>
       )}
     </SafeAreaView>
@@ -205,7 +178,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
   },
-
   leaderboardItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -213,29 +185,56 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#ccc',
   },
+  genderLeaderboard: {
+    marginTop: 20,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-evenly',
+    flex: 1,
+  },
+  barContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    height: '70%',
+    alignItems: 'flex-end',
+  },
+  barWrapper: {
+    alignItems: 'center',
+    width: 80,
+  },
+  bar: {
+    width: 40,
+    borderRadius: 10,
+  },
+  boysBar: {
+    backgroundColor: '#007BFF',
+  },
+  girlsBar: {
+    backgroundColor: '#FF69B4',
+  },
+  genderLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginTop: 5,
+  },
+  genderPoints: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
   rankText: {
     fontSize: 16,
     fontWeight: 'bold',
+    marginHorizontal: 25
   },
   nameText: {
     fontSize: 16,
     flex: 1,
     textAlign: 'center',
+    marginHorizontal: 25
   },
   pointsText: {
     fontSize: 16,
     fontWeight: 'bold',
-    textAlign: 'left',
+    marginHorizontal: 20
   },
-  genderLeaderboard: {
-    marginTop: 20,
-    alignItems: 'center',
-  },
-  genderText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-
 });
-
