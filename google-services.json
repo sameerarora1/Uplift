@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "123491932680",
+    "project_id": "uplift-app-34d41",
+    "storage_bucket": "uplift-app-34d41.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:123491932680:android:b78cdb7db4ff03e1730fbd",
+        "android_client_info": {
+          "package_name": "com.sameer6.upliftapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "123491932680-jth6ft5bqqjr5bg2lrsvp0kjshbe6jp3.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.sameer6.upliftapp",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "123491932680-phjg0amgcesqae6i209kfmf390s9ed8e.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCZd9PWfm2vn6dJ6H9XOxiJ7JEh0ZFHS-E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "123491932680-phjg0amgcesqae6i209kfmf390s9ed8e.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "123491932680-1jao241trhnjsrvuevatehgn5e7he8e9.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.sameer6.uplift-app"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
